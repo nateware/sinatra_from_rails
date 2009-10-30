@@ -1,0 +1,33 @@
+sinatra_from_rails
+==================
+
+A sweet plugin to change your Rails app into a Sinatra app.  First, install
+the plugin in your Rails app:
+
+   cd vendor/plugins
+   git clone git://github.com/nateware/sinatra_from_rails.git
+
+To generate a "classic" (single-file) app:
+
+   rake sinatra:from_rails:classic   # write to main.rb
+
+To generate a modular app:
+
+   rake sinatra:from_rails:modular   # writes to app/routes
+
+To change the name of the output file for a classic app (default is main.rb):
+
+   rake sinatra:from_rails:classic OUTPUT_FILE=application.rb
+
+To change the output directory for a modular app, and the name of the class:
+
+   rake sinatra:from_rails:classic OUTPUT_DIR=app/services CLASS_NAME=Services
+
+This plugin works about 90%.  If you're scaffolding, you're good to go.  If you have
+tons of controller code and weird lambda blocks and such you might have troubles.
+But you don't have tons of controller code, right?  That's in your models.
+
+Author
+======
+Copyright (c) 2009 Nate Wiger, released under the MIT license
+
