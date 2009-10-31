@@ -1,15 +1,14 @@
-sinatra_from_rails
-==================
+== Sinatra::FromRails - Convert your Rails app to a Sinatra app
 
 A sweet plugin to change your Rails app into a Sinatra app.  First, install
-the plugin in your Rails app:
+the plugin in your existing Rails app:
 
    cd vendor/plugins
    git clone git://github.com/nateware/sinatra_from_rails.git
 
 To generate a "classic" (single-file) app:
 
-   rake sinatra:from_rails:classic   # write to main.rb
+   rake sinatra:from_rails:classic   # writes to main.rb
 
 To generate a modular app:
 
@@ -23,11 +22,44 @@ To change the output directory for a modular app, and the name of the class:
 
    rake sinatra:from_rails:classic OUTPUT_DIR=app/services CLASS_NAME=Services
 
-This plugin works about 90%.  If you're scaffolding, you're good to go.  If you have
+== Repeated Generation
+
+To cutdown on having to specify those every time, define a "convert" task in your local
+tasks file:
+
+   # lib/tasks/convert_tasks.rake
+   namespace :sinatra do
+     namespace :from_rails do
+       task :convert => :load do
+         # Customize this part
+         Sinatra::FromRails.convert(:format => :xml, :style => :modular)
+       end
+     end
+   end
+
+Then:
+
+   rake sinatra:from_rails:convert
+   
+Viola!
+
+== Background
+
+My team at PlayStation writes a ton of XML/JSON services to interact with PS3/PSP game clients.
+These need to run fast, and at the view layer, just spit out Builder files.  We also use the
+same Rails stack to provide community features - forums, stats, etc.  For these, the extended
+Rails helpers are a big benefit.
+
+As such, we develop our app in Rails, then use this to spit out a Sinatra app for the XML/JSON
+services.
+
+== Disclaimer
+
+This plugin works about 95%.  If you're scaffolding, you're good to go.  If you have
 tons of controller code and weird lambda blocks and such you might have troubles.
 But you don't have tons of controller code, right?  That's in your models.
 
-Author
-======
-Copyright (c) 2009 Nate Wiger, released under the MIT license
+== Author
+
+Copyright (c) 2009 Nate Wiger, http://nate.wiger.org, released under the Artistic License
 

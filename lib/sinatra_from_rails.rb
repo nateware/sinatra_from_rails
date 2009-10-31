@@ -2,59 +2,34 @@
 require 'active_support/core_ext'
 module Sinatra
   module FromRails
-    # Settings
-    mattr_accessor :debug
-    @@debug = false
+    DEFAULT_SETTINGS = {
+      :debug  => false,
+      :format => :html,
+      :style  => :classic,
+      :output_file => 'main.rb',
+      :output_dir  => 'app/routes',
+      :class_name  => 'Main',
+      :controllers => nil,
+      :ignore_routes => [],
+      :ignore_actions => [],
+      :any_request_method => :post,
+      :render  => 'erb',
+      :head_ok => 'halt 200',
+      :head_error => 'halt 500'
+    }
+    mattr_accessor :settings
+    @@settings = {}
 
-    mattr_accessor :format
-    @@format = :xml
-    
-    mattr_accessor :output_file
-    @@output_file = 'main.rb'
-
-    mattr_accessor :output_dir
-    @@output_dir = 'app/routes'
-
-    mattr_accessor :style
-    @@style = :classic  # or :modular
-
-    mattr_accessor :class_name
-    @@class_name = 'Main'  # for :modular
-    
-    mattr_accessor :ignore_routes
-    @@ignore_routes = []
-
-    mattr_accessor :controllers
-    @@controllers = nil
-    
-    mattr_accessor :ignore_actions
-    @@ignore_actions = [:new, :edit]
-    
-    mattr_accessor :any_request_method
-    @@any_request_method = :post
-    
-    # What to use to render
-    mattr_accessor :render_method
-    @@render_method = 'xml'  #'builder'
-
-    # How to translate head :ok from Rails
-    mattr_accessor :head_ok_method
-    @@head_ok_method = 'halt 200'
-
-    # How to translate head :error from Rails
-    mattr_accessor :head_error_method
-    @@head_error_method = 'halt 500'
-
-    mattr_accessor :format, :output_file
+    PLUGIN_URL = 'http://github.com/nateware/sinatra_from_rails'
 
     class << self
       def debug(options={})
-        @@debug = true
+        self.settings[:debug] = true
         convert(options)
       end
 
-      def debug=(bool); @@debug = bool; end
-      def debug?; @@debug; end
+      def debug=(bool); self.settings[:debug] = bool; end
+      def debug?; self.settings[:debug]; end
 
       # Convert a Rails application to a Sinatra application.  Takes the following options
       #   :format         format.xyz to convert (default: xml)
@@ -64,14 +39,8 @@ module Sinatra
       #   :class_name     name of the class to generate for modular app (default: Main)
       #   :controllers    only convert controllers in this list, if defined
       def convert(options={})
-        self.format = options[:format] || Sinatra::FromRails.format
-        self.output_file  = options[:output_file]  || Sinatra::FromRails.output_file
-        self.output_dir   = options[:output_dir]   || Sinatra::FromRails.output_dir
-        self.style = options[:style] || Sinatra::FromRails.style
-        self.class_name   = options[:class_name] || Sinatra::FromRails.class_name
-        self.controllers  = options[:controllers] || Sinatra::FromRails.controllers
-
-        puts "Generating Sinatra application for all routes (format = #{format})"
+        self.settings = DEFAULT_SETTINGS.merge(options)
+        puts "Generating Sinatra application for all routes (format = #{self.settings[:format]})"
         write convert_controllers parse_routes
       end
 
@@ -81,15 +50,9 @@ module Sinatra
         ActionController::Routing::Routes.routes.each do |route|
           controller_name = route.requirements[:controller].to_s
 
-          # Handle Rails inflection bugs
-          controller_name =
-            case controller_name
-            when 'rss_preferenceses' then 'rss_preferences'
-            when 'player_metricses' then 'player_metrics'
-            when 'match_preferenceses' then 'match_preferences'
-            when 'preferenceses' then 'preferences'
-            else controller_name
-            end
+          # Handle Rails inflection bugs - "preferenceses" and "metricses"
+          controller_name.sub!(/eses$/, 'es')
+          controller_name.sub!(/cses$/, 'cs')
 
           next if controller_name =~ /\badmin\b/ # precaution
           next unless route.requirements[:action]  # map.connect
@@ -98,18 +61,18 @@ module Sinatra
           route_url   = "#{controller_name}/#{action_name}"
 
           # Env var we can set for quicker dev testing
-          next if self.controllers && !self.controllers.include?(controller_name.to_s)
+          next if settings[:controllers] && !settings[:controllers].include?(controller_name.to_s)
 
           # dup catch - can happen frequently so silence output
           if saw_url[route_url]
-            printf "        skip  %-40s (duplicate route)\n", route_url if Sinatra::FromRails.debug?
+            printf "        skip  %-40s (duplicate route)\n", route_url if debug?
             next
           end
           saw_url[route_url] = true
 
           # Ignore any explicit actions or routes
-          if Sinatra::FromRails.ignore_routes.include?(route_url) ||
-             Sinatra::FromRails.ignore_actions.include?(action_name.to_sym)
+          if settings[:ignore_routes].include?(route_url) ||
+             settings[:ignore_routes].include?(action_name.to_sym)
             printf "      ignore  %-40s\n", route_url
             next
           end
@@ -118,7 +81,7 @@ module Sinatra
           # the next def or ^end (end of the file).
           controller_file = nil
           controller_file_paths = ["#{RAILS_ROOT}/app/controllers/#{controller_name}_controller.rb"]
-          if TitleDir.exists?
+          if defined?(TitleDir) && TitleDir.exists?
             controller_file_paths.unshift File.join(TitleDir.dir, 'app', 'controllers', "#{controller_name}_controller.rb")
           end
           controller_file_paths.each do |controller_file_path|
@@ -129,7 +92,12 @@ module Sinatra
           end
 
           # Rails' routing internals are a bit convoluted
-          request_url    = route.segments.join.sub(/\(?\.:format\)?\??/, ".#{self.format}")
+          request_url    = route.segments.join
+          if settings[:format].to_sym == :html
+            request_url.sub!(/\(?\.:format\)?\??/, '')
+          else
+            request_url.sub!(/\(?\.:format\)?\??/, ".#{settings[:format]}")
+          end
           request_method = route.conditions[:method]
           unless request_method
             puts "  Warning: Route specified :any method for: #{controller_name}/#{action_name} (using :#{Sinatra::FromRails.any_request_method})"
@@ -203,7 +171,7 @@ module Sinatra
               found_correct_format = false
               format_do_buf = ''
               format_do_ends = 0
-              indent = self.style == :classic ? '  ' : '    '
+              indent = settings[:style] == :classic ? '  ' : '    '
               num_ends = 1  # def index
 
               # lookup route in our map
@@ -214,12 +182,12 @@ module Sinatra
                 next
               end
 
-              f << (self.style == :classic ? '' : '  ') +  "#{route_spec.first} '#{route_spec.last}' do\n"
+              f << (settings[:style] == :classic ? '' : '  ') +  "#{route_spec.first} '#{route_spec.last}' do\n"
             when /^\s+respond_to\s+(?:do|\{)\s*\|\w+\|\s*\n/
               in_respond_to = true
               num_ends += 1
             when /^\s+format.(\w+)\s*(\{)(.+)\}/, /^\s+format.(\w+)\s*(do)\s+/
-              wrong_format_type = $1.to_s != self.format.to_s # prune format.js/etc
+              wrong_format_type = $1.to_s != settings[:format].to_s # prune format.js/etc
               found_correct_format ||= !wrong_format_type
               puts "[#{view_path}/#{action_name}:#{linenum}] #{action_name} format? #{found_correct_format} ||= #{!wrong_format_type}" if debug?
               if in_format_do = $2.to_s == 'do'
@@ -228,15 +196,15 @@ module Sinatra
               end
               next if wrong_format_type
               unless in_respond_to
-                raise "Failed to parse format.#{self.format} block in #{view_path}/#{action_name}: Not in respond_to"
+                raise "Failed to parse format.#{settings[:format]} block in #{view_path}/#{action_name}: Not in respond_to"
               end
               f << parse_format_block($3.to_s, view_path, action_name, indent)
             when /^\s+format.(\w+)\s*$/
               # empty format.xml, meaning all defaults
-              wrong_format_type = $1.to_s != self.format.to_s # prune format.js/etc
+              wrong_format_type = $1.to_s != settings[:format].to_s # prune format.js/etc
               found_correct_format ||= !wrong_format_type
               next if wrong_format_type
-              f << "#{indent}#{render_method} :'#{view_path}/#{action_name}'\n"
+              f << "#{indent}#{settings[:render]} :'#{view_path}/#{action_name}'\n"
             when /^\s+flash\[.*/
               next  # prune flash
             when /^end\s*$/
@@ -258,7 +226,7 @@ module Sinatra
                 in_respond_to = false
               else
                 if num_ends == 0  # special because controllers are different nesting
-                  style == :modular ? f << "  end\n" : "end\n"
+                  settings[:style] == :modular ? f << "  end\n" : "end\n"
                 else
                   f << line.chomp.sub(/^\s+/, indent) + "\n"
                 end
@@ -295,13 +263,14 @@ module Sinatra
       # Write the resultant Sinatra application, either as a single file (classic) or 
       # separate files per controller (modular)
       def write(new_files)
-        case self.style
+        case settings[:style]
         when :classic
           # Single file
-          printf "       write  %-40s\n", self.output_file
-          File.open(self.output_file, 'w') do |f|
+          printf "       write  %-40s\n", settings[:output_file]
+          File.open(settings[:output_file], 'w') do |f|
             f << "##\n"
             f << "# Generated by rake #{ARGV * ' '}\n"
+            f << "# Keep up to date: #{PLUGIN_URL}\n"
             f << "#\n"
             new_files.each do |file|
               f << "\n# #{file.first.sub(/\.rb$/,'').humanize}\n"
@@ -311,11 +280,12 @@ module Sinatra
         when :modular
           # Separate files
           new_files.each do |file|
-            filename = "#{self.output_dir}/#{file.first}"
+            filename = "#{settings[:output_dir]}/#{file.first}"
             printf "       write  %-40s\n", filename
             File.open(filename, 'w') do |f|
               f << "##\n"
               f << "# Generated by rake #{ARGV * ' '}\n"
+              f << "# Keep up to date: #{PLUGIN_URL}\n"
               f << "#\n"
               f << "class #{class_name}\n"
               f << file.last
@@ -323,55 +293,70 @@ module Sinatra
             end
           end
         else
-          raise "Invalid style for Sinatra::FromRails: #{self.style} (must be :classic or :modular)"
+          raise "Invalid style for Sinatra::FromRails: #{settings[:style]} (must be :classic or :modular)"
         end
       end
+
+    private
 
       def parse_format_block(format_block, view_path, action_name, indent='')
         f = ''
         case format_block
         when /^\s*head\s+:ok/
-          f << "#{indent}#{head_ok_method}  # no response\n"
+          f << "#{indent}#{settings[:head_ok]}  # no response\n"
         when /^\s*head\s+:error/
-          f << "#{indent}#{head_error_method}\n"
+          f << "#{indent}#{settings[:head_error]}\n"
         when /^\s*render\s+:action\s*=>\s*[:'"](\w+)/
           puts "#{format_block} => render=#{view_path}/#{$1}" if debug?
-          f << "#{indent}#{render_method} :'#{view_path}/#{$1}'\n"
+          f << "#{indent}#{settings[:render]} :'#{view_path}/#{$1}'\n"
         when /^\s*render\s+:(\w+)\s*=>\s*(.+)/
           fmt = $1.to_s
           var = $2.to_s.chomp.strip
           var.sub!(/,\s+:status.*/,'')  # render :xml => @foo, :status => :error
           puts "var = '#{var}'" if debug?
           f << "#{indent}#{var}.to_#{fmt}\n"
+        when /^\s*redirect_to\(?\s*@(\w+)/
+          # Some BS Rails helper - try our best to fake it
+          base = $1.to_s
+          sing = base.singularize
+          if base == sing
+            # post_url(@post)
+            f << "#{indent}redirect \"/#{base.pluralize}/#\{@#{$1}.to_param\}\"\n"
+          else
+            f << "#{indent}redirect '/#{base.pluralize}'\n"
+          end
+        when /^\s*redirect_to\(?\s*(\w+)_url(\(.+\))?/
+          # Some BS Rails helper - try our best to fake it
+          base = $1.to_s
+          sing = base.singularize
+          if base == sing
+            # post_url(@post)
+            f << "#{indent}redirect \"/#{base.pluralize}/#\{#{$2}.to_param\}\"\n"
+          else
+            f << "#{indent}redirect '/#{base.pluralize}'\n"
+          end
+        when /^\s*redirect_to\(?\s*(\S+)/
+          url = $1.to_s.sub(/\)/,'')
+          f << "#{indent}redirect '#{url}'\n"
         when /^\s*(raise.+)/
           # format.xml  { raise PlayerCreationError::CreationUploadFailed }
           f << "#{indent}#{$1}\n"
         when /^\s*(\@.+)/
           # format.xml { @servers_of_type = Server.find_by_type(params[:server][:server_type_id]) }
           f << "#{indent}#{format_block}\n"
-          f << "#{indent}#{render_method} :'#{view_path}/#{action_name}'\n"
+          f << "#{indent}#{settings[:render]} :'#{view_path}/#{action_name}'\n"
         else
-          raise "Failed to parse format.#{self.format} block in #{view_path}:\n    #{format_block}"
+          raise "Failed to parse format.#{settings[:render]} block in #{view_path}:\n    #{format_block}"
         end
         f
       end
 
-    private
       # maintain minimum indent
       def outdent(indent, is_end=false)
         s = indent.sub(/^  /,'')
-        l = style == :classic ? 2 : 4
+        l = settings[:style] == :classic ? 2 : 4
         l -= 2 if is_end
         s.length < l ? (' ' * l) : s
-      end
-    
-      def path_minus_rails_root(path)
-        path.sub(/^#{File.dirname(RAILS_ROOT)}\//,'')
-      end
-
-      # ensure the "name=xyz" attribute is always first on a line by line basis
-      def name_first(str)
-        str.gsub(/^(\s*)(<\w+)(.*)(\s+name="[\w.]+")/, '\1\2\4\3')
       end
     end
   end
