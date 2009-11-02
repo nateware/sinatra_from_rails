@@ -5,7 +5,7 @@ namespace :sinatra do
       Sinatra::FromRails.convert(
         :style => :classic,
         :format => :html,
-        :render => 'erb',
+        :render => 'erb'
       )
     end
   end
