@@ -22,6 +22,34 @@ To change the output directory for a modular app, and the name of the class:
 
    rake sinatra:from_rails:classic OUTPUT_DIR=app/services CLASS_NAME=Services
 
+== Options
+
+The following options can be passed to +Sinatra::FromRails.convert+.  To pass them to
+the rake task, simply pass them as uppercase to the rake command line.  For example:
+
+  rake sinatra:from_rails:classic ANY_REQUEST_METHOD=post HEAD_ERROR='raise "Server Error"'
+
+Is the same as
+
+  Sinatra::FromRails.convert(:style => :classic, :any_request_method => :post,
+                             :head_error => 'raise "Server Error"')
+
+Available Sinatra::FromRails settings with their defaults:
+
+    :debug                 DEBUG                 false
+    :format                FORMAT                html
+    :style                 STYLE                 classic
+    :output_file           OUTPUT_FILE           main.rb
+    :output_dir            OUTPUT_DIR            app/routes
+    :class_name            CLASS_NAME            Main
+    :controllers           CONTROLLERS           nil
+    :ignore_routes         IGNORE_ROUTES         []
+    :ignore_actions        IGNORE_ACTIONS        []
+    :any_request_method    ANY_REQUEST_METHOD    post
+    :render                RENDER                erb
+    :head_ok               HEAD_OK               halt 200
+    :head_error            HEAD_ERROR            halt 500
+
 == Repeated Generation
 
 To cutdown on having to specify those every time, define a "convert" task in your local

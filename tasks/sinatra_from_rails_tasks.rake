@@ -14,9 +14,14 @@ namespace :sinatra do
       Sinatra::FromRails.convert(:style => :classic)
     end
 
-    desc "Generatea Sinatra modular application from Rails controllers/routes"
+    desc "Generate a Sinatra modular application from Rails controllers/routes"
     task :modular => :load do
       Sinatra::FromRails.convert(:style => :modular)
+    end
+
+    desc "Print rake sinatra:from_rails settings and their defaults"
+    task :defaults do
+      Sinatra::FromRails.defaults
     end
 
     # For testing purposes only

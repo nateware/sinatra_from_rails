@@ -23,6 +23,20 @@ module Sinatra
     PLUGIN_URL = 'http://github.com/nateware/sinatra_from_rails'
 
     class << self
+      def defaults
+        puts "Available Sinatra::FromRails settings with their defaults:"
+        puts
+        DEFAULT_SETTINGS.each do |var,val|
+          printf "    :%-20s  %-20s  %s\n", var, var.upcase, (val.nil? ? 'nil' : val)
+        end
+        puts
+        puts "To use in a rake sinatra:from_rails task, use the ALLCAPS version:"
+        puts
+        puts "    rake sinatra:from_rails:classic OUTPUT_FILE=application.rb"
+        puts "    rake sinatra:from_rails:modular FORMAT=xml IGNORE_ACTIONS=new,edit RENDER=builder"
+        puts
+      end
+
       def debug(options={})
         self.settings[:debug] = true
         convert(options)
@@ -43,7 +57,12 @@ module Sinatra
         DEFAULT_SETTINGS.each do |var,val|
           env = var.to_s.upcase
           if ENV.has_key?(env)
-            self.settings[var] = ENV[env]
+            # Handle env_var=a,b,c => var => [a,b,c]
+            if val.is_a?(Array)  # default
+              self.settings[var] = ENV[env].split(',')
+            else
+              self.settings[var] = ENV[env]
+            end
           elsif options.has_key?(var)
             self.settings[var] = options[var]
           else
