@@ -13,9 +13,11 @@ module Sinatra
       :ignore_routes => [],
       :ignore_actions => [],
       :any_request_method => :post,
+      :format_file_suffix => false, 
       :render  => 'erb',
       :head_ok => 'halt 200',
-      :head_error => 'halt 500'
+      :head_error => 'halt 500',
+      :to_param => '.to_param'
     }
     mattr_accessor :settings
     @@settings = {}
@@ -24,13 +26,16 @@ module Sinatra
 
     class << self
       def defaults
+        fmt = "    %-20s  %-20s  %s\n"
         puts "Available Sinatra::FromRails settings with their defaults:"
         puts
+        printf fmt, 'Setting', 'ENV variable', 'Default'
+        printf fmt, '='*20, '='*20, '='*20
         DEFAULT_SETTINGS.each do |var,val|
-          printf "    :%-20s  %-20s  %s\n", var, var.upcase, (val.nil? ? 'nil' : val)
+          printf fmt, ":#{var}", var.upcase, (val.nil? ? 'nil' : val)
         end
         puts
-        puts "To use in a rake sinatra:from_rails task, use the ALLCAPS version:"
+        puts "To use with a rake sinatra:from_rails task, use the ENV variable:"
         puts
         puts "    rake sinatra:from_rails:classic OUTPUT_FILE=application.rb"
         puts "    rake sinatra:from_rails:modular FORMAT=xml IGNORE_ACTIONS=new,edit RENDER=builder"
@@ -61,7 +66,12 @@ module Sinatra
             if val.is_a?(Array)  # default
               self.settings[var] = ENV[env].split(',')
             else
-              self.settings[var] = ENV[env]
+              self.settings[var] =
+                case ENV[env]
+                when '' then nil
+                when 'false','off','no' then false
+                when 'true','on','yes'  then true
+                else ENV[env] end
             end
           elsif options.has_key?(var)
             self.settings[var] = options[var]
@@ -241,7 +251,7 @@ EndBanner
               wrong_format_type = $1.to_s != settings[:format].to_s # prune format.js/etc
               found_correct_format ||= !wrong_format_type
               next if wrong_format_type
-              f << "#{indent}#{settings[:render]} :'#{view_path}/#{action_name}'\n"
+              f << "#{indent}#{render(view_path, action_name)}\n"
             when /^\s+flash\[.*/
               next  # prune flash
             when /^end\s*$/
@@ -346,7 +356,7 @@ EndBanner
           f << "#{indent}#{settings[:head_error]}\n"
         when /^\s*render\s+:action\s*=>\s*[:'"](\w+)/
           puts "#{r} => render=#{view_path}/#{$1}" if debug?
-          f << "#{indent}#{settings[:render]} :'#{view_path}/#{$1}'\n"
+          f << "#{indent}#{render(view_path, $1.to_s)}\n"
         when /^\s*render\s+:(\w+)\s*=>\s*(.+)/
           fmt = $1.to_s
           var = $2.to_s.chomp.strip
@@ -359,7 +369,7 @@ EndBanner
           sing = base.singularize
           if base == sing
             # post_url(@post)
-            f << "#{indent}redirect \"/#{base.pluralize}/#\{@#{$1}.to_param\}\"\n"
+            f << "#{indent}redirect \"/#{base.pluralize}/#\{@#{$1}#{settings[:to_param]}\}\"\n"
           else
             f << "#{indent}redirect '/#{base.pluralize}'\n"
           end
@@ -369,7 +379,7 @@ EndBanner
           sing = base.singularize
           if base == sing
             # post_url(@post)
-            f << "#{indent}redirect \"/#{base.pluralize}/#\{#{$2}.to_param\}\"\n"
+            f << "#{indent}redirect \"/#{base.pluralize}/#\{#{$2}#{settings[:to_param]}\}\"\n"
           else
             f << "#{indent}redirect '/#{base.pluralize}'\n"
           end
@@ -382,9 +392,9 @@ EndBanner
         when /^\s*(\@.+)/
           # format.xml { @servers_of_type = Server.find_by_type(params[:server][:server_type_id]) }
           f << "#{indent}#{r}\n"
-          f << "#{indent}#{settings[:render]} :'#{view_path}/#{action_name}'\n"
+          f << "#{indent}#{render(view_path, action_name)}\n"
         else
-          raise "Failed to parse format.#{settings[:render]} block in #{view_path}:\n    #{format_block}"
+          raise "Failed to parse format.#{settings[:format]} block in #{view_path}:\n    #{format_block}"
         end
         f
       end
@@ -395,6 +405,10 @@ EndBanner
         l = settings[:style] == :classic ? 2 : 4
         l -= 2 if is_end
         s.length < l ? (' ' * l) : s
+      end
+      
+      def render(view_path, action)
+        "#{settings[:render]} :'#{view_path}/#{action}#{settings[:format] if settings[:format_file_suffix]}'"
       end
     end
   end
