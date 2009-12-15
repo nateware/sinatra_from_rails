@@ -146,9 +146,9 @@ EndBanner
           end
           request_method = route.conditions[:method]
           unless request_method
-            puts "  Warning: Route specified :any method for: #{controller_name}/#{action_name} (using :#{Sinatra::FromRails.any_request_method})"
+            puts "  Warning: Route specified :any method for: #{controller_name}/#{action_name} (using :#{settings[:any_request_method]})"
             #raise("Must specify method of :get, :post, :put, or :delete for route: #{controller_name}/#{action_name} (#{route})")
-            request_method = Sinatra::FromRails.any_request_method
+            request_method = settings[:any_request_method]
           end
 
           controller_map[controller_file] ||= {}
@@ -396,6 +396,12 @@ EndBanner
         else
           raise "Failed to parse format.#{settings[:format]} block in #{view_path}:\n    #{format_block}"
         end
+        
+        # Make sure we got a head or render method out of that.  If not, append one.
+        unless f =~ /\b(halt|redirect|#{settings[:render]})\b/
+          f << "#{indent}#{render(view_path, action_name)}\n"
+        end
+        
         f
       end
 

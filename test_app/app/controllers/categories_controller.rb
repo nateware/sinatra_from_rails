@@ -21,6 +21,17 @@ class CategoriesController < ApplicationController
     end
   end
 
+  # GET /categories/1/details
+  # GET /categories/1/details.xml
+  def details
+    @category = Category.find(params[:id])
+
+    respond_to do |format|
+      format.html # show.html.erb
+      format.xml  { render :xml => @category }
+    end
+  end
+
   # GET /categories/new
   # GET /categories/new.xml
   def new

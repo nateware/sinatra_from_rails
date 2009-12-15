@@ -3,7 +3,7 @@ ActionController::Routing::Routes.draw do |map|
 
   map.resources :topic_categories
 
-  map.resources :categories
+  map.resources :categories, :member => {:details => :any}
 
   map.resources :posts
 

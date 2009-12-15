@@ -13,10 +13,17 @@ class ComplexesController < ApplicationController
   # GET /complexes/1
   # GET /complexes/1.xml
   def show
-    @complex = Complex.find(params[:id])
+    if params[:username]
+      @complex = Complex.find_by_username(params[:username])
+    else
+      @complex = Complex.find(params[:id])
+    end
 
     respond_to do |format|
-      format.html # show.html.erb
+      format.html do
+        @magic = 1
+        # show.html.erb
+      end
       format.xml  { render :xml => @complex }
     end
   end
