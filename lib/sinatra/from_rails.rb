@@ -185,6 +185,7 @@ EndBanner
           wrong_format_type = false
           found_correct_format = false
           skip_this_action = false
+          continued_backslash_lines = []
 
           input_file.lines.each do |line|
             # This error will be triggered if we aren't properly counting if/do/while nesting.
@@ -199,6 +200,16 @@ EndBanner
             # Must explicitly check for these since Ruby uses #{} inside a string which SUCKS for us
             line.sub!(/^#.*|^\s+#.*|\s+#.*/,'')
             next if line =~ /^$|^\s*#/  # empty line or commented-out code
+
+            # Join with next line - odd state switch
+            if line =~ /\\$/
+              continued_backslash_lines << line.chomp.sub(/\\/,'')
+              next
+            elsif !continued_backslash_lines.empty?
+              line = "#{continued_backslash_lines.join('')} #{line}"
+              continued_backslash_lines = []
+            end
+
             puts "[#{view_path}/#{action_name}:#{linenum}] (indent='#{indent}') / LINE='#{line}'" if debug?
             case line
             when /^\s*class/
@@ -405,7 +416,6 @@ EndBanner
         
         # Make sure we got a head or render method out of that.  If not, append one.
         unless f =~ /\b(halt|redirect\w*|#{settings[:render]})\b/
-          puts "no redirect -- #{view_path} / #{action_name}: #{f}"
           f << "#{indent}#{render(view_path, action_name)}\n"
         end
         

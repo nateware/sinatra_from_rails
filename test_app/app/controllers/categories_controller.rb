@@ -75,6 +75,9 @@ class CategoriesController < ApplicationController
   def update
     @category = Category.find(params[:id])
 
+    raise InvalidCategory \
+      if [params[:a], params[:b]].include? '123'
+
     respond_to do |format|
       if @category.update_attributes(params[:category])
         flash[:notice] = 'Category was successfully updated.'

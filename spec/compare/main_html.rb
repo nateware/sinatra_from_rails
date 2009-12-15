@@ -38,6 +38,7 @@ end
 
 put '/categories/:id' do
   @category = Category.find(params[:id])
+  raise InvalidCategory        if [params[:a], params[:b]].include? '123'
   if @category.update_attributes(params[:category])
     redirect "/categories/#{@category.to_param}"
   else
