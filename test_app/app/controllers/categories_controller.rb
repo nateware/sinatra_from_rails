@@ -24,12 +24,17 @@ class CategoriesController < ApplicationController
   # GET /categories/1/details
   # GET /categories/1/details.xml
   def details
-    @category = Category.find(params[:id])
+    @category = Category.view(params[:policy_type], params[:platform],
+                          session[:region_code] || Setting[:default_region], 
+                          session[:language_code] || Setting[:default_language], 
+                          params[:username])
 
     respond_to do |format|
-      format.html # show.html.erb
-      format.xml  { render :xml => @category }
-    end
+      format.html do
+        redirect_back_or_default '/' if @category.is_accepted == true
+      end
+      format.xml { render :action => "view" }
+    end       
   end
 
   # GET /categories/new

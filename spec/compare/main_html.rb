@@ -15,9 +15,12 @@ get '/categories/:id' do
 end
 
 post '/categories/:id/details' do
-  @category = Category.find(params[:id])
-  erb :'categories/details'
-end
+  @category = Category.view(params[:policy_type], params[:platform],
+  session[:region_code] || Setting[:default_region], 
+  session[:language_code] || Setting[:default_language], 
+  params[:username])
+  redirect_back_or_default '/' if @category.is_accepted == true
+end       
 
 get '/categories/new' do
   @category = Category.new

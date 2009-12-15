@@ -383,9 +383,15 @@ EndBanner
           else
             f << "#{indent}redirect '/#{base.pluralize}'\n"
           end
-        when /^\s*redirect_to\(?\s*(\S+)/
-          url = $1.to_s.sub(/\)/,'')
-          f << "#{indent}redirect '#{url}'\n"
+        when /^\s*redirect_to[\( ]\s*(\S+)\s*\)?(.*)/
+          trail = $2.to_s
+          url = $1.to_s.sub(/\)/,'').gsub(/['"]/,'')
+          f << "#{indent}redirect '#{url}' #{trail}\n"
+        when /^\s*(redirect_\w+)[\( ]*(\S+)\s*\)?(.*)/
+          meth  = $1.to_s
+          trail = $3.to_s
+          url   = $2.to_s.sub(/\)/,'').gsub(/['"]/,'')
+          f << "#{indent}#{meth} '#{url}' #{trail}\n"
         when /^\s*(raise.+)/
           # format.xml  { raise PlayerCreationError::CreationUploadFailed }
           f << "#{indent}#{$1}\n"
@@ -398,7 +404,8 @@ EndBanner
         end
         
         # Make sure we got a head or render method out of that.  If not, append one.
-        unless f =~ /\b(halt|redirect|#{settings[:render]})\b/
+        unless f =~ /\b(halt|redirect\w*|#{settings[:render]})\b/
+          puts "no redirect -- #{view_path} / #{action_name}: #{f}"
           f << "#{indent}#{render(view_path, action_name)}\n"
         end
         
