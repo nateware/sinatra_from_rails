@@ -360,6 +360,7 @@ EndBanner
       def parse_format_block(format_block, view_path, action_name, indent='')
         r = format_block.pop
         f = format_block.map{|l| l.gsub(/^\s+/,indent)}.join
+        render_to_fmt = false
         case r
         when /^\s*head\s+:ok/
           f << "#{indent}#{settings[:head_ok]}\n"
@@ -373,6 +374,7 @@ EndBanner
           var = $2.to_s.chomp.strip
           var.sub!(/,\s+:status.*/,'')  # render :xml => @foo, :status => :error
           puts "var = '#{var}'" if debug?
+          render_to_fmt = true
           f << "#{indent}#{var}.to_#{fmt}\n"
         when /^\s*redirect_to\(?\s*@(\w+)/
           # Some BS Rails helper - try our best to fake it
@@ -415,7 +417,7 @@ EndBanner
         end
         
         # Make sure we got a head or render method out of that.  If not, append one.
-        unless f =~ /\b(halt|redirect\w*|#{settings[:render]})\b/
+        unless render_to_fmt || f =~ /\b(halt|redirect\w*|#{settings[:render]})\b/
           f << "#{indent}#{render(view_path, action_name)}\n"
         end
         

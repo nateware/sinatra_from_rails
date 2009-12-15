@@ -11,9 +11,9 @@ describe Sinatra::FromRails do
     verify_sinatra_from_rails_file(outfile)
   end
 
-  xit "should convert XML controllers to a classic style app" do
+  it "should convert XML controllers to a classic style app" do
     outfile = output_file_path :main_xml
-    system "rake sinatra:from_rails:classic OUTPUT_FILE=#{outfile} FORMAT=xml"
+    system "rake sinatra:from_rails:classic OUTPUT_FILE=#{outfile} FORMAT=xml RENDER=builder"
     verify_sinatra_from_rails_file(outfile)
   end
 end
