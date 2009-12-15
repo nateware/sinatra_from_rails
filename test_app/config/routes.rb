@@ -1,4 +1,6 @@
 ActionController::Routing::Routes.draw do |map|
+  map.resources :complexes, :collection => {:search => :get}
+
   map.resources :topic_categories
 
   map.resources :categories

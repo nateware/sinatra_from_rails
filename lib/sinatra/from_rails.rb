@@ -93,7 +93,7 @@ EndBanner
       def parse_routes
         saw_url = {} # avoid regen for dup routes
         controller_map = {}
-        ActionController::Routing::Routes.routes.each do |route|
+        ActionController::Routing::Routes.routes.sort{|a,b| a.to_s <=> b.to_s}.each do |route|  # sort for humans
           controller_name = route.requirements[:controller].to_s
 
           # Handle Rails inflection bugs - "preferenceses" and "metricses"
