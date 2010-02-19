@@ -290,17 +290,17 @@ EndBanner
                 end
               end
               puts "[#{view_path}/#{action_name}:#{linenum}] end: in_respond_to=#{in_respond_to}, in_format_do=#{in_format_do}, num_ends=#{num_ends}" if debug?
-            when /^\s+(else|elsif)\s*$/
+            when /^\s+(else|elsif|when|rescue)\s*$/
               f << line.chomp.sub(/^\s+/, outdent(indent)) + "\n"
             else
               if in_format_do
                 format_do_buf << line
-              else
+              elsif line !~ /^\s*(protected|private)/
                 f << line.chomp.sub(/^\s+/, indent) + "\n" # if/do/while/anything else Ruby
                 puts "[#{view_path}/#{action_name}:#{linenum}] (indent='#{indent}') LINE='#{line.sub(/^\s+/, indent)}' / ENDS=#{num_ends}" if debug?
               end
               # This regex is ugly because "if blah; foo; end" is different than "foo if blah" 
-              if line =~ /^\s*if\b|\beach\b|\bdo\b|^\s*while\b|^\s*for\b|^\s*unless\b|^\s*until\b|^\s*begin\b|^\s*case\b/
+              if line =~ /^\s*if\b|\beach\s+do\b|\bdo\b|^\s*while\b|^\s*for\b|^\s*unless\b|^\s*until\b|^\s*begin\b|^\s*case\b/
                 if in_format_do
                   format_do_ends += 1
                 else
@@ -366,9 +366,11 @@ EndBanner
           f << "#{indent}#{settings[:head_ok]}\n"
         when /^\s*head\s+:error/
           f << "#{indent}#{settings[:head_error]}\n"
-        when /^\s*render\s+:action\s*=>\s*[:'"](\w+)/
-          puts "#{r} => render=#{view_path}/#{$1}" if debug?
-          f << "#{indent}#{render(view_path, $1.to_s)}\n"
+        when /^\s*render\s+:action\s*=>\s*[:'"]([\w\/]+)/, /^\s*render\s+[:'"]([\w\/]+)/
+          path = $1.to_s
+          path = "../#{path}" if path =~ /\//
+          puts "#{r} => render=#{view_path}/#{path}" if debug?
+          f << "#{indent}#{render(view_path, path)}\n"
         when /^\s*render\s+:(\w+)\s*=>\s*(.+)/
           fmt = $1.to_s
           var = $2.to_s.chomp.strip
