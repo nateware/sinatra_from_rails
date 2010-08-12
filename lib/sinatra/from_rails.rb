@@ -188,16 +188,12 @@ EndBanner
             # This error will be triggered if we aren't properly counting if/do/while nesting.
             # The usual culprits are format do .. end or respond_to do .. end with if/end in between.
             puts "[#{view_path}/#{action_name}:#{linenum}] (num_ends=#{num_ends}, in_respond_to=#{in_respond_to}, in_format_do=#{in_format_do}, format_do_ends=#{format_do_ends}) LINE:#{line.chomp}\$" if debug?
-            raise "[#{view_path}/#{action_name}:#{linenum}] Parsing error: Somehow end block count went negative" if num_ends < 0
+            raise "[#{view_path}/#{action_name}:#{linenum}] Parsing error: Somehow end block count went negative: #{line}" if num_ends < 0
 
             linenum += 1
             next if skip_this_action
             puts "f={#{f}}" if debug?
             
-            # Must explicitly check for these since Ruby uses #{} inside a string which SUCKS for us
-            line.sub!(/^#.*|^\s+#.*|\s+#.*/,'')
-            next if line =~ /^$|^\s*#/  # empty line or commented-out code
-
             # Join with next line - odd state switch
             if line =~ /\\$/
               continued_backslash_lines << line.chomp.sub(/\\/,'')
@@ -211,8 +207,10 @@ EndBanner
             case line
             when /^\s*class/
               next
+            when /^\s*#.*/
+              f << line
             when /^\s*$/
-              f << ''  # squish blank lines
+              f << "\n"  # squish blank lines
             when /^\s*def\s+(\w+)\b/
               new_buf << f + "\n" if found_correct_format  # previous action
               f = ''
@@ -254,7 +252,7 @@ EndBanner
                 raise "Failed to parse format.#{settings[:format]} block in #{view_path}/#{action_name}: Not in respond_to"
               end
               f << parse_format_block([$3.to_s], view_path, action_name, indent)
-            when /^\s+format.(\w+)\s*$/
+            when /^\s+format.(\w+)\s*\#?.*$/
               # empty format.xml, meaning all defaults
               wrong_format_type = $1.to_s != settings[:format].to_s # prune format.js/etc
               found_correct_format ||= !wrong_format_type
@@ -262,10 +260,10 @@ EndBanner
               f << "#{indent}#{render(view_path, action_name)}\n"
             when /^\s+flash\[.*/
               next  # prune flash
-            when /^end\s*$/
+            when /^end\s*\#?.*$/
               #num_ends -= 1
               next  # final end in controller
-            when /^\s+end\s*$/
+            when /^\s+end\s*\#?.*$/
               # other ends to close if/else/each
               if in_format_do
                 format_do_ends -= 1
@@ -287,7 +285,7 @@ EndBanner
                 end
               end
               puts "[#{view_path}/#{action_name}:#{linenum}] end: in_respond_to=#{in_respond_to}, in_format_do=#{in_format_do}, num_ends=#{num_ends}" if debug?
-            when /^\s+(else|elsif|when|rescue)\s*$/
+            when /^\s+(else|elsif|when|rescue)\s*\#?.*$/
               f << line.chomp.sub(/^\s+/, outdent(indent)) + "\n"
             else
               if in_format_do
