@@ -116,9 +116,8 @@ EndBanner
           end
           saw_url[route_url] = true
 
-          # Ignore any explicit actions or routes
-          if settings[:ignore_routes].include?(route_url) ||
-             settings[:ignore_routes].include?(action_name.to_sym)
+          # Ignore any explicit routes
+          if settings[:ignore_routes].include?(route_url)
             printf "      ignore  %-40s\n", route_url
             next
           end
@@ -190,6 +189,14 @@ EndBanner
             puts "[#{view_path}/#{action_name}:#{linenum}] (num_ends=#{num_ends}, in_respond_to=#{in_respond_to}, in_format_do=#{in_format_do}, format_do_ends=#{format_do_ends}) LINE:#{line.chomp}\$" if debug?
             raise "[#{view_path}/#{action_name}:#{linenum}] Parsing error: Somehow end block count went negative: #{line}" if num_ends < 0
 
+            if line =~ /^\s*def\s+(\w+)\b/
+              if settings[:ignore_actions].include?($1.to_s.to_sym)
+                skip_this_action = true
+              else
+                skip_this_action = false
+              end
+            end
+
             linenum += 1
             next if skip_this_action
             puts "f={#{f}}" if debug?
@@ -212,6 +219,8 @@ EndBanner
             when /^\s*$/
               f << "\n"  # squish blank lines
             when /^\s*def\s+(\w+)\b/
+              action_name = $1.to_s
+              puts "Set action_name = #{action_name}" if debug?
               new_buf << f + "\n" if found_correct_format  # previous action
               f = ''
               puts "[#{view_path}/#{action_name}:#{linenum}] **** Appending f={#{f}}" if found_correct_format && debug?
@@ -227,7 +236,6 @@ EndBanner
               num_ends = 1  # def index
 
               # lookup route in our map
-              action_name = $1.to_s
               route_spec = actions[action_name]
               unless route_spec
                 skip_this_action = true
@@ -361,11 +369,6 @@ EndBanner
           f << "#{indent}#{settings[:head_ok]}\n"
         when /^\s*head\s+:error/
           f << "#{indent}#{settings[:head_error]}\n"
-        when /^\s*render\s+:action\s*=>\s*[:'"]([\w\/]+)/, /^\s*render\s+[:'"]([\w\/]+)/
-          path = $1.to_s
-          path = "../#{path}" if path =~ /\//
-          puts "#{r} => render=#{view_path}/#{path}" if debug?
-          f << "#{indent}#{render(view_path, path)}\n"
         when /^\s*render\s+:(\w+)\s*=>\s*(.+)/
           fmt = $1.to_s
           var = $2.to_s.chomp.strip
@@ -373,6 +376,11 @@ EndBanner
           puts "var = '#{var}'" if debug?
           render_to_fmt = true
           f << "#{indent}#{var}.to_#{fmt}\n"
+        when /^\s*render\s+:action\s*=>\s*[:'"]([\w\/]+)/, /^\s*render\s+[:'"]([\w\/]+)/
+          path = $1.to_s
+          path = "../#{path}" if path =~ /\//
+          puts "#{r} => render=#{view_path}/#{path}" if debug?
+          f << "#{indent}#{render(view_path, path)}\n"
         when /^\s*redirect_to\(?\s*@(\w+)/
           # Some BS Rails helper - try our best to fake it
           base = $1.to_s
@@ -429,8 +437,9 @@ EndBanner
         s.length < l ? (' ' * l) : s
       end
       
-      def render(view_path, action)
-        "#{settings[:render]} :'#{view_path}/#{action}#{settings[:format] if settings[:format_file_suffix]}'"
+      def render(view_path, action_name)
+        raise "bad action: #{view_path}/#{action_name}" if action_name.to_s == 'xml'
+        "#{settings[:render]} :'#{view_path}/#{action_name}#{'.'+settings[:format].to_s if settings[:format_file_suffix]}'"
       end
     end
   end
